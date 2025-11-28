@@ -2,7 +2,10 @@
 # CAPSTONE MOVIE RECOMMENDER - Requirements
 # =============================================================================
 #
-# IMPORTANT: numpy MUST be < 2.0.0 due to scikit-surprise compatibility
+# IMPORTANT: Pinned versions for compatibility
+# - numpy<2.0.0 required for scikit-surprise
+# - tensorflow==2.15.1 compatible with numpy<2.0
+# - Python 3.11 required (see runtime.txt)
 #
 # Setup:
 #   python -m venv .venv
@@ -14,24 +17,23 @@
 
 # Core data science
 pandas>=2.0.0
-numpy>=1.26.0,<2.0.0  # CRITICAL: Must be <2.0 for scikit-surprise
+numpy>=1.26.0,<2.0.0
 scikit-learn>=1.5.0
 scipy>=1.10.0
 
-# Deep learning / ML
+# Deep learning / ML - PINNED for numpy<2.0 compatibility
 torch>=2.0.0
-tensorflow>=2.15.0
-tf-keras>=2.15.0
-keras>=3.0.0
+tensorflow==2.15.1
+tf-keras==2.15.0
 
 # NLP - Natural Language Processing
 transformers>=4.40.0
-sentence-transformers>=2.2.0  # For BERT embeddings & clause classification
+sentence-transformers>=2.2.0
 spacy>=3.7.0
 nltk>=3.8.0
 
 # Collaborative filtering
-scikit-surprise>=1.1.4  # Requires numpy<2.0
+scikit-surprise==1.1.4
 
 # Vector search
 faiss-cpu>=1.7.0
