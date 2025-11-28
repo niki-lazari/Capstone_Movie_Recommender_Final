@@ -1,22 +1,76 @@
+# ================================
 # Python
+# ================================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pkl
 
-# Virtual envs
+# ================================
+# Virtual environments
+# ================================
 .venv/
 env/
 venv/
 
-# Data artifacts (we'll keep only small/sample ones in git)
-data/*.parquet
-!data/tmdb_with_review_tags.parquet  # OPTIONAL: keep this tracked if you want
-
+# ================================
 # Jupyter checkpoints
+# ================================
 .ipynb_checkpoints/
 
-# OS files
+# ================================
+# OS / Editor junk
+# ================================
 .DS_Store
 Thumbs.db
+
+# ================================
+# Raw / intermediate data (big files)
+# ================================
+data/raw/*.npy
+data/raw/*.bin
+data/raw/*.h5
+data/raw/*.keras
+data/raw/*.pkl
+
+# Allow core parquets & CSVs (keep these!)
+!data/tmdb_with_review_tags.parquet
+!data/raw/unified_dataset.csv
+!data/raw/*.parquet
+!data/raw/*.csv
+
+# ================================
+# Model artifacts (local only)
+# ================================
+models/*.npy
+models/*.bin
+models/*.keras
+models/*.h5
+models/*.pkl
+models/*.json
+
+# BUT allow these specific models (tracked with LFS)
+!models/svd_model.pkl
+!models/ncf_model.keras
+!models/enriched_movie_embeddings.npy
+!models/keyword_embeddings.npy
+
+# ================================
+# Processed data (regenerated)
+# ================================
+data/processed/*
+
+# ================================
+# Logs / runtime junk
+# ================================
+*.log
+
+# ================================
+# FAISS indexes (large)
+# ================================
+*.faiss
+*.index
+
+data/raw/reviews_with_emotions.parquet
+data/raw/unified_dataset.csv
+

@@ -1,0 +1,54 @@
+# Signal weights for different query types
+signal_weights:
+  factual:
+    collaborative_filtering: 0.40
+    content_similarity: 0.30
+    theme_overlap: 0.10
+    sentiment_match: 0.05
+    genre_match: 0.10
+    quality: 0.05
+  
+  semantic:
+    collaborative_filtering: 0.20
+    content_similarity: 0.25
+    theme_overlap: 0.40
+    sentiment_match: 0.05
+    genre_match: 0.05
+    quality: 0.05
+  
+  mixed:
+    collaborative_filtering: 0.30
+    content_similarity: 0.30
+    theme_overlap: 0.20
+    sentiment_match: 0.10
+    genre_match: 0.05
+    quality: 0.05
+
+# Rare tag boosting thresholds
+rare_tag_boost:
+  ultra_rare_threshold: 50      # <50 movies (martial arts, sports)
+  ultra_rare_boost: 0.40
+  rare_threshold: 200            # 50-200 movies (gangster, western)
+  rare_boost: 0.25
+  uncommon_threshold: 1000       # 200-1000 movies (sci-fi, fantasy)
+  uncommon_boost: 0.10
+
+# Bayesian rating parameters
+bayesian_rating:
+  minimum_votes: 1000            # m parameter
+  global_mean: 4.89              # C parameter (computed from TMDB)
+
+# FAISS search parameters
+faiss:
+  top_k: 3000                    # Candidates to retrieve
+  min_similarity: 0.0            # Minimum cosine similarity
+
+# Collaborative filtering ensemble
+cf_ensemble:
+  svd_weight: 0.50
+  neumf_weight: 0.50
+
+# Fallback strategy
+fallback:
+  min_results: 5                 # Trigger split actor fallback if < 5
+  max_candidates: 1200           # Limit candidate pool size

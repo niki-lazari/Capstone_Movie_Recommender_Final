@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 90 python:*)",
+      "Bash(python test_political_true_events.py:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
