@@ -2,6 +2,14 @@
 Kineto - Streamlit Movie Recommender App
 A natural language movie recommendation system with 6-signal hybrid architecture.
 Multi-page flow: welcome → auth_menu → login/signup → profile → search
+
+Enhanced Features:
+- Movie poster images from TMDB
+- "Why This Recommendation?" signal breakdown
+- Confidence score badges
+- Query history in sidebar
+- "Surprise Me" button
+- Watchlist functionality
 """
 
 import streamlit as st
@@ -9,6 +17,7 @@ import time
 import pandas as pd
 import re
 import os
+import random
 
 # Page config
 st.set_page_config(
@@ -16,6 +25,10 @@ st.set_page_config(
     page_icon="🎬",
     layout="wide"
 )
+
+# TMDB image base URL
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w200"
+TMDB_IMAGE_LARGE = "https://image.tmdb.org/t/p/w400"
 
 # =============================================================================
 # SESSION STATE INITIALIZATION
@@ -30,6 +43,8 @@ def init_session_state():
         'user_info': {},
         'logged_in': False,
         'appearance': 'dark',
+        'query_history': [],
+        'watchlist': [],
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -42,83 +57,111 @@ init_session_state()
 # =============================================================================
 def get_theme_css():
     """Return CSS based on appearance setting."""
-    if st.session_state.appearance == 'light':
-        return """
-        <style>
-            .stApp { background-color: #ffffff; }
-            .kineto-title { color: #1a1a1a; }
-            .kineto-letter { color: #e50914; }
-            .tagline { color: #444444; }
-            .movie-card { background-color: #f5f5f5; border-radius: 10px; padding: 15px; margin: 10px 0; }
-            .track-header { background-color: #e0e0e0; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-            .demo-notice { background-color: #fff3cd; padding: 10px; border-radius: 5px; color: #856404; }
-            .footer-text { color: #666666; }
-        </style>
-        """
-    else:  # dark mode (default)
-        return """
-        <style>
-            .kineto-title {
-                font-size: 4rem;
-                font-weight: bold;
-                text-align: center;
-                margin: 20px 0;
-            }
-            .kineto-letter {
-                color: #e50914;
-                display: inline-block;
-                animation: pulse 2s ease-in-out infinite;
-            }
-            .kineto-letter:nth-child(1) { animation-delay: 0s; }
-            .kineto-letter:nth-child(2) { animation-delay: 0.1s; }
-            .kineto-letter:nth-child(3) { animation-delay: 0.2s; }
-            .kineto-letter:nth-child(4) { animation-delay: 0.3s; }
-            .kineto-letter:nth-child(5) { animation-delay: 0.4s; }
-            .kineto-letter:nth-child(6) { animation-delay: 0.5s; }
-            @keyframes pulse {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50% { opacity: 0.8; transform: scale(1.05); }
-            }
-            .tagline {
-                text-align: center;
-                font-size: 1.2rem;
-                color: #cccccc;
-                margin-bottom: 30px;
-            }
-            .movie-card {
-                background-color: #1e1e1e;
-                border-radius: 10px;
-                padding: 15px;
-                margin: 10px 0;
-            }
-            .track-header {
-                background-color: #2d2d2d;
-                padding: 10px;
-                border-radius: 5px;
-                margin-bottom: 10px;
-            }
-            .demo-notice {
-                background-color: #2d2d2d;
-                padding: 10px;
-                border-radius: 5px;
-                color: #ffc107;
-                text-align: center;
-                margin: 10px 0;
-            }
-            .footer-text { color: #888888; }
-            .center-content {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                min-height: 60vh;
-            }
-            .auth-button {
-                width: 200px;
-                margin: 10px;
-            }
-        </style>
-        """
+    base_css = """
+    <style>
+        .kineto-title {
+            font-size: 4rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .kineto-letter {
+            color: #e50914;
+            display: inline-block;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .kineto-letter:nth-child(1) { animation-delay: 0s; }
+        .kineto-letter:nth-child(2) { animation-delay: 0.1s; }
+        .kineto-letter:nth-child(3) { animation-delay: 0.2s; }
+        .kineto-letter:nth-child(4) { animation-delay: 0.3s; }
+        .kineto-letter:nth-child(5) { animation-delay: 0.4s; }
+        .kineto-letter:nth-child(6) { animation-delay: 0.5s; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        .tagline {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #cccccc;
+            margin-bottom: 30px;
+        }
+        .demo-notice {
+            background-color: #2d2d2d;
+            padding: 10px;
+            border-radius: 5px;
+            color: #ffc107;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .footer-text { color: #888888; }
+
+        /* Movie card styles */
+        .movie-card {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+
+        /* Confidence badge styles */
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .badge-high {
+            background-color: #28a745;
+            color: white;
+        }
+        .badge-good {
+            background-color: #ffc107;
+            color: black;
+        }
+        .badge-try {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        /* Signal bar styles */
+        .signal-bar-container {
+            margin: 5px 0;
+        }
+        .signal-bar-label {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 2px;
+        }
+        .signal-bar {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #333;
+            overflow: hidden;
+        }
+        .signal-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .signal-cf { background-color: #e50914; }
+        .signal-content { background-color: #1db954; }
+        .signal-theme { background-color: #6366f1; }
+        .signal-sentiment { background-color: #f59e0b; }
+        .signal-tag { background-color: #ec4899; }
+        .signal-query { background-color: #14b8a6; }
+
+        /* Watchlist button */
+        .watchlist-btn {
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+    </style>
+    """
+    return base_css
 
 st.markdown(get_theme_css(), unsafe_allow_html=True)
 
@@ -157,6 +200,74 @@ def navigate_to(page):
     """Navigate to a different page."""
     st.session_state.page = page
     st.rerun()
+
+def get_poster_url(poster_path, size="w200"):
+    """Get TMDB poster URL."""
+    if poster_path and isinstance(poster_path, str) and poster_path.startswith('/'):
+        return f"https://image.tmdb.org/t/p/{size}{poster_path}"
+    return None
+
+def calculate_confidence(movie):
+    """Calculate confidence score based on signal agreement."""
+    scores = [
+        getattr(movie, 'cf_score', 0) or 0,
+        getattr(movie, 'content_score', 0) or 0,
+        getattr(movie, 'theme_score', 0) or 0,
+        getattr(movie, 'sentiment_score', 0) or 0,
+        getattr(movie, 'tag_score', 0) or 0,
+        getattr(movie, 'query_score', 0) or 0,
+    ]
+    # Weighted average with query_score having highest weight
+    weights = [0.10, 0.15, 0.15, 0.05, 0.25, 0.30]
+    confidence = sum(s * w for s, w in zip(scores, weights))
+    return min(confidence * 100, 99)  # Cap at 99%
+
+def get_confidence_badge(confidence):
+    """Get confidence badge HTML."""
+    if confidence >= 70:
+        return f'<span class="confidence-badge badge-high">{confidence:.0f}% Match</span>'
+    elif confidence >= 45:
+        return f'<span class="confidence-badge badge-good">{confidence:.0f}% Match</span>'
+    else:
+        return f'<span class="confidence-badge badge-try">Worth a Try</span>'
+
+def render_signal_bars(movie):
+    """Render signal breakdown as progress bars."""
+    signals = [
+        ("CF (Collaborative)", getattr(movie, 'cf_score', 0) or 0, "signal-cf"),
+        ("Content Similarity", getattr(movie, 'content_score', 0) or 0, "signal-content"),
+        ("Theme Match", getattr(movie, 'theme_score', 0) or 0, "signal-theme"),
+        ("Sentiment", getattr(movie, 'sentiment_score', 0) or 0, "signal-sentiment"),
+        ("Zero-shot Tags", getattr(movie, 'tag_score', 0) or 0, "signal-tag"),
+        ("Query Relevance", getattr(movie, 'query_score', 0) or 0, "signal-query"),
+    ]
+
+    html = ""
+    for label, score, css_class in signals:
+        width = min(score * 100, 100)
+        html += f'''
+        <div class="signal-bar-container">
+            <div class="signal-bar-label">{label}: {score:.2f}</div>
+            <div class="signal-bar">
+                <div class="signal-bar-fill {css_class}" style="width: {width}%"></div>
+            </div>
+        </div>
+        '''
+    return html
+
+def add_to_query_history(query):
+    """Add query to history (max 5)."""
+    if query and query not in st.session_state.query_history:
+        st.session_state.query_history.insert(0, query)
+        st.session_state.query_history = st.session_state.query_history[:5]
+
+def toggle_watchlist(movie_title, movie_year):
+    """Toggle movie in watchlist."""
+    item = f"{movie_title} ({movie_year})"
+    if item in st.session_state.watchlist:
+        st.session_state.watchlist.remove(item)
+    else:
+        st.session_state.watchlist.append(item)
 
 # =============================================================================
 # PAGE: WELCOME
@@ -362,7 +473,6 @@ def page_profile():
                 navigate_to('auth_menu')
         with col_next:
             if st.button("Next →", type="primary", use_container_width=True):
-                # Store user info
                 st.session_state.user_info.update({
                     'first_name': first_name,
                     'last_name': last_name,
@@ -381,22 +491,18 @@ def page_profile():
 # =============================================================================
 # PAGE: SEARCH (Main Recommendation Interface)
 # =============================================================================
-@st.cache_resource(show_spinner=True)
+@st.cache_resource(show_spinner=False)
 def load_recommender():
     """Load the movie recommender system."""
-    with st.spinner("Loading recommendation engine... (this may take 30-60 seconds on first load)"):
-        from src.recommender_interactive_v4 import MovieRecommenderInteractiveV4
-        return MovieRecommenderInteractiveV4()
+    from src.recommender_interactive_v4 import MovieRecommenderInteractiveV4
+    return MovieRecommenderInteractiveV4()
 
 
 def get_movie_details(recommender, movie_title):
     """Look up movie details from TMDB data."""
     movies_df = recommender.movies
 
-    # Try exact match first
     match = movies_df[movies_df['title'].str.lower() == movie_title.lower()]
-
-    # If no exact match, try contains
     if match.empty:
         match = movies_df[movies_df['title'].str.lower().str.contains(movie_title.lower(), na=False)]
 
@@ -429,17 +535,39 @@ def get_movie_details(recommender, movie_title):
         'genres': safe_get('genres', []),
         'runtime': safe_get('runtime', 'N/A'),
         'vote_average': safe_get('vote_average', 'N/A'),
+        'poster_path': safe_get('poster_path', None),
     }
+
+
+def get_movie_poster_path(recommender, movie_title):
+    """Get poster path for a movie."""
+    movies_df = recommender.movies
+    match = movies_df[movies_df['title'].str.lower() == movie_title.lower()]
+    if match.empty:
+        match = movies_df[movies_df['title'].str.lower().str.contains(movie_title.lower(), na=False)]
+    if not match.empty:
+        poster = match.iloc[0].get('poster_path', None)
+        if poster and isinstance(poster, str):
+            return poster
+    return None
 
 
 def display_movie_details(details):
     """Display formatted movie details."""
     st.markdown("---")
-    st.subheader(f"📽️ {details['title']} ({details['year']})")
 
-    col1, col2 = st.columns(2)
+    col_poster, col_info = st.columns([1, 3])
 
-    with col1:
+    with col_poster:
+        poster_url = get_poster_url(details.get('poster_path'), "w400")
+        if poster_url:
+            st.image(poster_url, width=200)
+        else:
+            st.markdown("🎬 No poster available")
+
+    with col_info:
+        st.subheader(f"📽️ {details['title']} ({details['year']})")
+
         directors = details['directors']
         if isinstance(directors, list) and directors:
             st.markdown(f"**Director(s):** {', '.join(str(d) for d in directors[:3])}")
@@ -452,11 +580,6 @@ def display_movie_details(details):
         elif cast and cast != 'N/A':
             st.markdown(f"**Cast:** {cast}")
 
-        studios = details['production_companies']
-        if isinstance(studios, list) and studios:
-            st.markdown(f"**Studio:** {', '.join(str(s) for s in studios[:3])}")
-
-    with col2:
         genres = details['genres']
         if isinstance(genres, list) and genres:
             st.markdown(f"**Genres:** {', '.join(str(g) for g in genres)}")
@@ -469,51 +592,77 @@ def display_movie_details(details):
 
     st.markdown("**Overview:**")
     overview = details['overview']
-    if len(str(overview)) > 600:
-        overview = str(overview)[:600] + "..."
+    if len(str(overview)) > 800:
+        overview = str(overview)[:800] + "..."
     st.markdown(f"*{overview}*")
 
 
-def display_movie_row(movie, index):
-    """Display a single movie row."""
-    col_rank, col_info, col_score = st.columns([0.5, 5, 1])
+def display_movie_card(movie, index, recommender):
+    """Display enhanced movie card with poster and signals."""
+    movie_title = movie.movie_title
+    year = getattr(movie, 'year', 'N/A')
+    overview = getattr(movie, 'overview', '')
+    final_score = getattr(movie, 'final_score', 0)
 
-    with col_rank:
-        st.markdown(f"### {index}")
+    # Get poster
+    poster_path = get_movie_poster_path(recommender, movie_title)
+    poster_url = get_poster_url(poster_path) if poster_path else None
+
+    # Calculate confidence
+    confidence = calculate_confidence(movie)
+
+    # Create card layout
+    col_poster, col_info, col_actions = st.columns([1, 4, 1])
+
+    with col_poster:
+        if poster_url:
+            st.image(poster_url, width=100)
+        else:
+            st.markdown("🎬")
 
     with col_info:
-        year = getattr(movie, 'year', 'N/A')
-        st.markdown(f"**{movie.movie_title}** ({year})")
+        # Title with confidence badge
+        badge_html = get_confidence_badge(confidence)
+        st.markdown(f"**{index}. {movie_title}** ({year}) {badge_html}", unsafe_allow_html=True)
 
-        overview = getattr(movie, 'overview', '')
-        if overview and len(str(overview)) > 150:
-            overview = str(overview)[:150] + "..."
+        # Truncated overview
         if overview:
-            st.caption(overview)
+            display_overview = str(overview)[:150] + "..." if len(str(overview)) > 150 else overview
+            st.caption(display_overview)
 
-    with col_score:
-        score = getattr(movie, 'final_score', 0)
-        st.metric("Score", f"{score:.2f}")
+        # Score
+        st.markdown(f"**Score:** {final_score:.2f}")
 
-    return (index, movie.movie_title, movie)
+    with col_actions:
+        # Watchlist button
+        item = f"{movie_title} ({year})"
+        is_in_watchlist = item in st.session_state.watchlist
+        btn_label = "❤️" if is_in_watchlist else "🤍"
+        if st.button(btn_label, key=f"wl_{index}_{movie_title[:10]}", help="Add to watchlist"):
+            toggle_watchlist(movie_title, year)
+            st.rerun()
+
+    # Expandable signal breakdown
+    with st.expander("🔍 Why this recommendation?"):
+        st.markdown(render_signal_bars(movie), unsafe_allow_html=True)
+        st.caption("These 6 signals from our hybrid AI architecture determined this match.")
+
+    st.markdown("---")
 
 
 def page_search():
     """Main search/recommendation page."""
-    # Get user's first name for greeting
     first_name = st.session_state.user_info.get('first_name', 'there')
     if not first_name:
         first_name = 'there'
 
-    # Personalized greeting
     st.title(f"Hi {first_name}! 👋")
     st.markdown("### What do you feel like watching?")
 
-    # Sidebar settings
+    # Sidebar
     with st.sidebar:
         st.header("⚙️ Settings")
 
-        # Appearance
         appearance = st.selectbox(
             "Appearance",
             options=["dark", "light", "system"],
@@ -531,52 +680,74 @@ def page_search():
             options=["balanced", "accuracy", "ratings"],
             index=0,
             help="""
-            - **Balanced**: Mix of relevance and quality (recommended)
-            - **Accuracy**: Pure content matching, ignores ratings
-            - **Ratings**: Prioritizes highly-rated/popular movies
+            - **Balanced**: Mix of relevance and quality
+            - **Accuracy**: Pure content matching
+            - **Ratings**: Prioritizes popular movies
             """
         )
 
-        top_n = st.slider(
-            "Results per Track",
-            min_value=5,
-            max_value=20,
-            value=10
-        )
+        top_n = st.slider("Results per Track", min_value=5, max_value=20, value=10)
+
+        # Query History
+        st.markdown("---")
+        st.markdown("### 🕐 Recent Searches")
+        if st.session_state.query_history:
+            for hist_query in st.session_state.query_history:
+                if st.button(f"📝 {hist_query[:30]}...", key=f"hist_{hist_query[:15]}", use_container_width=True):
+                    st.session_state.query_input = hist_query
+                    st.session_state.search_results = None
+                    st.rerun()
+        else:
+            st.caption("No recent searches")
+
+        # Watchlist
+        st.markdown("---")
+        watchlist_count = len(st.session_state.watchlist)
+        st.markdown(f"### ❤️ Watchlist ({watchlist_count})")
+        if st.session_state.watchlist:
+            with st.expander("View Watchlist"):
+                for item in st.session_state.watchlist:
+                    col_item, col_remove = st.columns([4, 1])
+                    with col_item:
+                        st.markdown(f"• {item}")
+                    with col_remove:
+                        if st.button("✕", key=f"rm_{item[:10]}"):
+                            st.session_state.watchlist.remove(item)
+                            st.rerun()
+        else:
+            st.caption("No movies saved yet")
 
         st.markdown("---")
-        st.markdown("### Example Queries")
+        st.markdown("### 💡 Example Queries")
         example_queries = [
             "Julia Roberts romances from the 90s",
             "Dark psychological thrillers with a strong female lead",
             "My girlfriend broke up with me - something to cheer me up",
             "Epic war movies set in ancient times",
             "90s action movies with Arnold Schwarzenegger",
-            "Coming-of-age movies from the 2010s",
         ]
-        for eq in example_queries:
-            if st.button(eq, key=f"example_{eq[:20]}"):
+        for eq in example_queries[:3]:
+            if st.button(eq[:35] + "...", key=f"ex_{eq[:15]}", use_container_width=True):
                 st.session_state.query_input = eq
                 st.session_state.search_results = None
-                st.session_state.all_movies_list = []
+                st.rerun()
 
         st.markdown("---")
-
-        # User info display
         if st.session_state.user_info.get('email'):
-            st.markdown(f"**Logged in as:** {st.session_state.user_info['email']}")
+            st.caption(f"Logged in as: {st.session_state.user_info['email']}")
 
-        if st.button("🚪 Log Out"):
+        if st.button("🚪 Log Out", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.user_info = {}
             st.session_state.page = 'welcome'
             st.session_state.search_results = None
+            st.session_state.query_history = []
+            st.session_state.watchlist = []
             st.rerun()
 
     # Main content
     st.markdown("---")
 
-    # Query input
     query = st.text_input(
         "Describe what you're looking for:",
         value=st.session_state.get("query_input", ""),
@@ -584,26 +755,60 @@ def page_search():
         key="query_box"
     )
 
-    # Search buttons
-    col1, col2, col3 = st.columns([1, 1, 4])
+    # Action buttons
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
     with col1:
         search_clicked = st.button("🔍 Search", type="primary", use_container_width=True)
     with col2:
         if st.button("🎲 Random", use_container_width=True):
-            import random
             query = random.choice(example_queries)
             st.session_state.query_input = query
             st.session_state.search_results = None
-            st.session_state.all_movies_list = []
             st.rerun()
+    with col3:
+        surprise_clicked = st.button("✨ Surprise Me", use_container_width=True,
+                                     help="Get a hidden gem recommendation")
+
+    # Custom loading message
+    loading_messages = [
+        "🎬 Kineto is analyzing your taste...",
+        "🎥 Searching through 43,858 movies...",
+        "🍿 Finding your perfect match...",
+        "🎞️ Running 6-signal hybrid analysis...",
+    ]
 
     # Load recommender
-    recommender = load_recommender()
+    with st.spinner(random.choice(loading_messages)):
+        recommender = load_recommender()
+
+    # Handle Surprise Me
+    if surprise_clicked:
+        with st.spinner("✨ Finding a hidden gem for you..."):
+            # Get random highly-rated but less popular movie
+            movies_df = recommender.movies
+            hidden_gems = movies_df[
+                (movies_df['vote_average'] >= 7.0) &
+                (movies_df['vote_count'] >= 100) &
+                (movies_df['vote_count'] < 5000)
+            ]
+            if not hidden_gems.empty:
+                gem = hidden_gems.sample(1).iloc[0]
+                st.success(f"✨ **Hidden Gem:** {gem['title']} ({gem.get('year', 'N/A')})")
+                st.markdown(f"**Rating:** {gem['vote_average']}/10 ({gem['vote_count']} votes)")
+
+                poster_url = get_poster_url(gem.get('poster_path'))
+                if poster_url:
+                    st.image(poster_url, width=200)
+
+                overview = gem.get('overview', 'No overview available.')
+                st.markdown(f"*{overview[:500]}...*" if len(str(overview)) > 500 else f"*{overview}*")
 
     # Run search
     if search_clicked and query:
+        add_to_query_history(query)
+
         try:
-            with st.spinner(f"Finding movies matching: '{query}'..."):
+            with st.spinner(random.choice(loading_messages)):
                 start_time = time.time()
                 result = recommender.recommend(
                     query=query,
@@ -617,7 +822,7 @@ def page_search():
             st.session_state.search_time = elapsed
             st.session_state.top_n = top_n
 
-            # Build movie list for dropdown
+            # Build movie list
             all_movies = []
             is_dual = (hasattr(result, 'dual_track_mode') and result.dual_track_mode and
                        hasattr(result, 'entity_track') and result.entity_track and
@@ -648,9 +853,9 @@ def page_search():
         if result.recommendations:
             st.success(f"Found movies in {st.session_state.get('search_time', 0):.1f}s for: \"{st.session_state.last_query}\"")
 
-            # Show interpretation if available
+            # Query interpretation
             if hasattr(result, 'parsed_query') and result.parsed_query:
-                with st.expander("Query Interpretation", expanded=False):
+                with st.expander("🎯 Query Interpretation", expanded=False):
                     pq = result.parsed_query
                     cols = st.columns(4)
                     genres = getattr(pq, 'genres', []) or []
@@ -668,45 +873,41 @@ def page_search():
 
             st.markdown("---")
 
-            # Check for DUAL-TRACK mode
+            # Dual-track check
             is_dual_track = (hasattr(result, 'dual_track_mode') and result.dual_track_mode and
                              hasattr(result, 'entity_track') and result.entity_track and
                              hasattr(result, 'mood_track') and result.mood_track)
 
             if is_dual_track:
                 st.markdown("### 🎯 Dual-Track Results")
-                st.info("Your query has both **content elements** and **mood elements**. Here are recommendations from both perspectives:")
+                st.info("Your query has both **content** and **mood** elements. Here are recommendations from both perspectives:")
 
-                col_entity, col_mood = st.columns(2)
+                tab1, tab2 = st.tabs(["📌 Entity Track", "💭 Mood Track"])
 
-                with col_entity:
-                    st.markdown("#### 📌 Entity Track")
+                with tab1:
                     st.caption("Content-focused (actors, themes, genres)")
                     for i, movie in enumerate(result.entity_track[:top_n], 1):
-                        display_movie_row(movie, i)
+                        display_movie_card(movie, i, recommender)
 
-                with col_mood:
-                    st.markdown("#### 💭 Mood Track")
+                with tab2:
                     st.caption("Theme/sentiment-focused")
-                    start_idx = len(result.entity_track[:top_n]) + 1
-                    for i, movie in enumerate(result.mood_track[:top_n], start_idx):
-                        display_movie_row(movie, i)
+                    for i, movie in enumerate(result.mood_track[:top_n], 1):
+                        display_movie_card(movie, i, recommender)
 
             else:
                 st.markdown(f"### 🎬 Top {min(top_n, len(result.recommendations))} Recommendations")
                 for i, movie in enumerate(result.recommendations[:top_n], 1):
-                    display_movie_row(movie, i)
-                    st.markdown("---")
+                    display_movie_card(movie, i, recommender)
 
-            # Movie details section
+            # Movie details lookup
             st.markdown("---")
-            st.markdown("### 📖 Learn More About a Movie")
+            st.markdown("### 📖 Movie Details")
 
             if st.session_state.all_movies_list:
                 movie_options = ["Select a movie..."] + [f"{idx}. {title}" for idx, title, _ in st.session_state.all_movies_list]
 
                 selected = st.selectbox(
-                    "Choose a movie to see details:",
+                    "Choose a movie to see full details:",
                     movie_options,
                     key="movie_detail_select"
                 )
@@ -723,7 +924,7 @@ def page_search():
         else:
             st.warning("No movies found matching your query. Try a different search!")
 
-    elif not search_clicked:
+    elif not search_clicked and not surprise_clicked:
         if st.session_state.search_results is None:
             st.info("👆 Enter a query above and click Search to get movie recommendations!")
 
