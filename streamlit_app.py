@@ -850,6 +850,17 @@ def page_search():
         result = st.session_state.search_results
         top_n = st.session_state.get('top_n', 10)
 
+        # Debug info for troubleshooting
+        with st.expander("🔧 Debug Info", expanded=False):
+            st.write(f"**Recommendations count:** {len(result.recommendations) if result.recommendations else 0}")
+            st.write(f"**Num candidates:** {getattr(result, 'num_candidates', 'N/A')}")
+            st.write(f"**Dual track mode:** {getattr(result, 'dual_track_mode', False)}")
+            if hasattr(result, 'parsed_query') and result.parsed_query:
+                pq = result.parsed_query
+                st.write(f"**Parsed themes:** {getattr(pq, 'themes', [])}")
+                st.write(f"**Parsed keywords:** {getattr(pq, 'keywords', [])}")
+                st.write(f"**Adult context:** {getattr(pq, 'adult_context', False)}")
+
         if result.recommendations:
             st.success(f"Found movies in {st.session_state.get('search_time', 0):.1f}s for: \"{st.session_state.last_query}\"")
 
@@ -923,6 +934,15 @@ def page_search():
 
         else:
             st.warning("No movies found matching your query. Try a different search!")
+            # Show diagnostic info for debugging
+            st.info(f"""
+**Debug Info:**
+- Recommendations: {len(result.recommendations) if result.recommendations else 0}
+- Candidates: {getattr(result, 'num_candidates', 'N/A')}
+- Dual track: {getattr(result, 'dual_track_mode', False)}
+- Entity track: {len(result.entity_track) if hasattr(result, 'entity_track') and result.entity_track else 0}
+- Mood track: {len(result.mood_track) if hasattr(result, 'mood_track') and result.mood_track else 0}
+            """)
 
     elif not search_clicked and not surprise_clicked:
         if st.session_state.search_results is None:
