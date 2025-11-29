@@ -861,6 +861,18 @@ def page_search():
                 st.write(f"**Parsed keywords:** {getattr(pq, 'keywords', [])}")
                 st.write(f"**Adult context:** {getattr(pq, 'adult_context', False)}")
 
+            # Clause detection diagnostics
+            try:
+                from src.recommender_interactive_v4 import _split_query_into_clauses, detect_situation_outcome_query
+                clauses = _split_query_into_clauses(st.session_state.last_query)
+                sit_out = detect_situation_outcome_query(st.session_state.last_query)
+                st.write(f"**Clauses detected:** {clauses}")
+                st.write(f"**Situation+Outcome detected:** {sit_out.get('is_situation_outcome', False)}")
+                st.write(f"**Situations:** {sit_out.get('situations', [])}")
+                st.write(f"**Outcomes:** {sit_out.get('outcomes', [])}")
+            except Exception as e:
+                st.write(f"**Clause detection error:** {e}")
+
         if result.recommendations:
             st.success(f"Found movies in {st.session_state.get('search_time', 0):.1f}s for: \"{st.session_state.last_query}\"")
 
