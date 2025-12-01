@@ -174,17 +174,58 @@ def validate_email(email):
     return re.match(pattern, email) is not None
 
 def render_kineto_title():
-    """Render the animated Kineto title."""
+    """Render the animated Kineto title with fly-in animation."""
     st.markdown("""
-        <div class="kineto-title">
-            <span class="kineto-letter">K</span>
-            <span class="kineto-letter">I</span>
-            <span class="kineto-letter">N</span>
-            <span class="kineto-letter">E</span>
-            <span class="kineto-letter">T</span>
-            <span class="kineto-letter">O</span>
+        <style>
+        @keyframes flyLeft {
+            0%{opacity:0;transform:translateX(-100px) rotate(-20deg);}
+            80%{opacity:1;transform:translateX(10px) rotate(2deg);}
+            100%{opacity:1;transform:translateX(0) rotate(0);}
+        }
+        @keyframes flyRight {
+            0%{opacity:0;transform:translateX(100px) rotate(20deg);}
+            80%{opacity:1;transform:translateX(-10px) rotate(-2deg);}
+            100%{opacity:1;transform:translateX(0) rotate(0);}
+        }
+        @keyframes flyTop {
+            0%{opacity:0;transform:translateY(-100px) rotate(10deg);}
+            80%{opacity:1;transform:translateY(10px) rotate(-2deg);}
+            100%{opacity:1;transform:translateY(0) rotate(0);}
+        }
+
+        .title-container {
+            text-align:center;
+            font-size:48px;
+            font-weight:bold;
+            margin-bottom:10px;
+        }
+
+        .title-letter {
+            display:inline-block;
+            color:#E50914;
+            opacity:0;
+        }
+
+        .title-letter:nth-child(1){ animation:flyLeft .8s ease forwards .1s; }
+        .title-letter:nth-child(2){ animation:flyRight .8s ease forwards .3s; }
+        .title-letter:nth-child(3){ animation:flyTop .8s ease forwards .5s; }
+        .title-letter:nth-child(4){ animation:flyLeft .8s ease forwards .7s; }
+        .title-letter:nth-child(5){ animation:flyRight .8s ease forwards .9s; }
+        .title-letter:nth-child(6){ animation:flyTop .8s ease forwards 1.1s; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div class="title-container">
+            <span class="title-letter">K</span>
+            <span class="title-letter">I</span>
+            <span class="title-letter">N</span>
+            <span class="title-letter">E</span>
+            <span class="title-letter">T</span>
+            <span class="title-letter">O</span>
         </div>
     """, unsafe_allow_html=True)
+
 
 def render_logo():
     """Render the Kineto logo."""
