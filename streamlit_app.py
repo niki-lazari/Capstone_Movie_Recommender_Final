@@ -407,7 +407,7 @@ def page_login():
             if st.button("Log In", type="primary", use_container_width=True, disabled=not can_login):
                 st.session_state.user_info['email'] = email
                 st.session_state.logged_in = True
-                navigate_to('profile')
+                navigate_to('search')
 
 # =============================================================================
 # PAGE: PROFILE
