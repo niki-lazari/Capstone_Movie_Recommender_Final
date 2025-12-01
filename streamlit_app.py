@@ -18,6 +18,7 @@ import pandas as pd
 import re
 import os
 import random
+import base64
 
 # Page config
 st.set_page_config(
@@ -226,16 +227,38 @@ def render_kineto_title():
         </div>
     """, unsafe_allow_html=True)
 
-
 def render_logo():
-    """Render the Kineto logo."""
+    """Render the Kineto logo, perfectly centered."""
     logo_path = "kineto_logo.png"
+
     if os.path.exists(logo_path):
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            st.image(logo_path, width=200)
+        # Read image and encode as base64 so we can control alignment via HTML/CSS
+        with open(logo_path, "rb") as f:
+            logo_base64 = base64.b64encode(f.read()).decode()
+
+        st.markdown("""
+            <style>
+                .logo-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin-top: 20px;
+                    margin-bottom: 10px;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <div class="logo-container">
+                <img src="data:image/png;base64,{logo_base64}" width="200">
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown("<h1 style='text-align: center;'>🎬</h1>", unsafe_allow_html=True)
+
 
 def navigate_to(page):
     """Navigate to a different page."""
